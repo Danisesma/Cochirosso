@@ -288,6 +288,8 @@ function render(){
       <ul class="items-list">
         ${p.items.map(i => `<li>• ${i.nombre} x${i.cantidad} — $${i.precio * i.cantidad}</li>`).join('')}
       </ul>
+      ${p.nombre ? `<div style="font-size:12.5px;color:var(--text);font-weight:700;margin:4px 0">👤 ${p.nombre}</div>` : ''}
+      ${p.celular ? `<div style="font-size:12.5px;color:var(--text);margin:4px 0">📱 <a href="tel:${p.celular}" style="color:var(--rojo);text-decoration:none">${p.celular}</a></div>` : ''}
       ${p.direccion ? `<div style="font-size:12.5px;color:var(--text);margin:4px 0">📍 ${p.direccion}</div>` : ''}
       ${p.zona ? `<div style="font-size:12.5px;color:var(--rojo);font-weight:700;margin:4px 0">🛵 Zona: ${p.zona}</div>` : ''}
       <div class="totales">

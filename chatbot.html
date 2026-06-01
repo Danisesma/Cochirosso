@@ -123,9 +123,13 @@ let carrito = [];
 let envioActual = 0;
 let zonaActual = '';
 let direccionActual = '';
+let nombreActual = '';
+let celularActual = '';
 let esperandoConfirmacion = false;
 let esperandoCantidad = null;
 let esperandoDireccion = false;
+let esperandoNombre = false;
+let esperandoCelular = false;
 
 function scroll(){ chat.scrollTop = chat.scrollHeight; }
 
@@ -207,6 +211,8 @@ async function guardarPedido(){
     id: Date.now(),
     fecha: new Date().toLocaleString('es-MX'),
     items: [...carrito],
+    nombre: nombreActual,
+    celular: celularActual,
     direccion: direccionActual,
     zona: zonaActual,
     subtotal: sub,
@@ -228,13 +234,42 @@ async function guardarPedido(){
   return pedido;
 }
 
-function pedirDireccion(){
-  esperandoDireccion = true;
-  addBubble('bot', '📍 Por favor escribe tu dirección completa (calle, número y colonia) para calcular el envío y mandar tu pedido.');
+function pedirNombre(){
+  esperandoNombre = true;
+  addBubble('bot', '😊 ¡Perfecto! Para tu pedido, ¿me dices tu nombre completo?');
 }
 
 function handleUserInput(texto){
   const txt = texto.toLowerCase().trim();
+
+  if(esperandoNombre){
+    if(texto.trim().length < 2){
+      addBubble('user', texto);
+      addBubble('bot', 'Escribe tu nombre, por favor 🙂');
+      return;
+    }
+    esperandoNombre = false;
+    nombreActual = texto.trim();
+    addBubble('user', texto);
+    esperandoCelular = true;
+    addBubble('bot', `Gracias, ${nombreActual}. 📱 Ahora escribe tu número de celular (10 dígitos) por si necesitamos contactarte.`);
+    return;
+  }
+
+  if(esperandoCelular){
+    const soloNumeros = texto.replace(/\D/g, '');
+    if(soloNumeros.length < 10){
+      addBubble('user', texto);
+      addBubble('bot', 'El celular debe tener 10 dígitos. Escríbelo de nuevo, por favor 📱');
+      return;
+    }
+    esperandoCelular = false;
+    celularActual = soloNumeros;
+    addBubble('user', texto);
+    esperandoDireccion = true;
+    addBubble('bot', '📍 Ahora escribe tu dirección completa (calle, número y colonia) para calcular el envío.');
+    return;
+  }
 
   if(esperandoDireccion){
     // El texto del cliente es su dirección
@@ -250,7 +285,7 @@ function handleUserInput(texto){
     zonaActual = env.zona;
     addBubble('user', texto);
     esperandoConfirmacion = true;
-    addBubble('bot', `📍 Dirección: ${direccionActual}\n\n${resumenCarrito(true)}\n\n¿Confirmas tu pedido?`, [
+    addBubble('bot', `Revisa tu pedido:\n\n👤 ${nombreActual}\n📱 ${celularActual}\n📍 ${direccionActual}\n\n${resumenCarrito(true)}\n\n¿Confirmas tu pedido?`, [
       {label:'✅ Sí, confirmar', value:'sí'},
       {label:'❌ Cancelar', value:'no'}
     ]);
@@ -264,8 +299,8 @@ function handleUserInput(texto){
       addBubble('bot', '⏳ Enviando tu pedido...');
       guardarPedido().then(pedido => {
         carrito = [];
-        addBubble('bot', `✅ ¡Pedido #${pedido.id} confirmado! Nos ponemos a trabajar. Tu total fue $${pedido.total} (incluye $${pedido.envio} de envío a ${pedido.zona}). ¡Gracias por elegir Cochirosso! 🐷`);
-        zonaActual = ''; envioActual = 0; direccionActual = '';
+        addBubble('bot', `✅ ¡Pedido #${pedido.id} confirmado, ${pedido.nombre}! Nos ponemos a trabajar. Tu total fue $${pedido.total} (incluye $${pedido.envio} de envío a ${pedido.zona}). ¡Gracias por elegir Cochirosso! 🐷`);
+        zonaActual = ''; envioActual = 0; direccionActual = ''; nombreActual = ''; celularActual = '';
         setTimeout(() => addBubble('bot', '¿Deseas hacer otro pedido?', [{label:'📋 Ver menú de nuevo', value:'ver menú'}]), 1000);
       });
     } else {
@@ -325,7 +360,7 @@ function handleUserInput(texto){
       mostrarMenu();
       return;
     }
-    pedirDireccion();
+    pedirNombre();
     return;
   }
 
