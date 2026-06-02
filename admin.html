@@ -290,6 +290,9 @@ function render(){
       </ul>
       ${p.nombre ? `<div style="font-size:12.5px;color:var(--text);font-weight:700;margin:4px 0">👤 ${p.nombre}</div>` : ''}
       ${p.celular ? `<div style="font-size:12.5px;color:var(--text);margin:4px 0">📱 <a href="tel:${p.celular}" style="color:var(--rojo);text-decoration:none">${p.celular}</a></div>` : ''}
+      ${p.horario ? `<div style="font-size:12.5px;color:var(--text);font-weight:700;margin:4px 0">⏰ ${p.horario}</div>` : ''}
+      ${p.pago ? `<div style="font-size:12.5px;color:var(--text);font-weight:700;margin:4px 0">💰 ${p.pago}</div>` : ''}
+      ${p.comprobante ? `<div style="margin:6px 0"><a href="${p.comprobante}" target="_blank" style="display:inline-block"><img src="${p.comprobante}" style="max-width:140px;border-radius:8px;border:1.5px solid var(--rojo)"/><div style="font-size:11px;color:var(--rojo);font-weight:700;margin-top:2px">📎 Ver comprobante</div></a></div>` : ''}
       ${p.direccion ? `<div style="font-size:12.5px;color:var(--text);margin:4px 0">📍 ${p.direccion}</div>` : ''}
       ${p.zona ? `<div style="font-size:12.5px;color:var(--rojo);font-weight:700;margin:4px 0">🛵 Zona: ${p.zona}</div>` : ''}
       <div class="totales">

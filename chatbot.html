@@ -60,6 +60,10 @@ header img{width:48px;height:48px;border-radius:50%;object-fit:cover}
 <div id="chat"></div>
 
 <div id="input-area">
+  <input type="file" id="file-input" accept="image/*" style="display:none"/>
+  <button id="upload-btn" title="Subir comprobante" style="display:none;background:#16a34a;border:none;border-radius:10px;width:42px;height:42px;cursor:pointer;display:none;align-items:center;justify-content:center;flex-shrink:0">
+    <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:#fff"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+  </button>
   <textarea id="msg-input" rows="1" placeholder="Escribe aquí..."></textarea>
   <button id="send-btn">
     <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
@@ -98,10 +102,11 @@ const MENU = [
   {nombre:"Torta Cochirosso",desc:"Adobada Rosso + Cilantro + Cebolla Morada",precio:100},
   {nombre:"Torta Enchirosso",desc:"Adobada Rosso + Cilantro + Chiles Jalapeños",precio:100},
   {nombre:"Torta Poderosso",desc:"Adobada Rosso + Cilantro + Cebolla Morada + Chiles",precio:110},
-  {nombre:"Chamorro Cantinero",desc:"Tortillas + Cebolla Morada + Salsa Roja",precio:170},
   {nombre:"Combo Rosso",desc:"Torta + Papas + Bebida",precio:160},
   {nombre:"Combo Poderosso",desc:"Torta Poderosso + Papas + Bebida",precio:170},
 ];
+// Datos para pago en línea (transferencia)
+const DATOS_PAGO = `🏦 HSBC\n👤 Daniel Sesma Hernandez\n💳 Tarjeta: 4213 1680 6054 0028\n🔢 CLABE: 021180064873801685\n📒 Cuenta: 6487380168`;
 // Detección de zona por palabras clave en la dirección
 const ZONAS_20 = ['campestre','torreon jardin','torreón jardín','torreon jardín','torreón jardin','jardin','jardín','centro'];
 const ZONAS_60 = ['villas','las villas','senderos','sendero','viñedos','vinedos','viñedo','vinedo'];
@@ -125,11 +130,19 @@ let zonaActual = '';
 let direccionActual = '';
 let nombreActual = '';
 let celularActual = '';
+let horarioActual = '';
+let pagoActual = '';
 let esperandoConfirmacion = false;
 let esperandoCantidad = null;
 let esperandoDireccion = false;
 let esperandoNombre = false;
 let esperandoCelular = false;
+let esperandoHorario = false;
+let esperandoHoraProgramada = false;
+let esperandoPago = false;
+let esperandoBillete = false;
+let esperandoComprobante = false;
+let comprobanteActual = '';
 
 function scroll(){ chat.scrollTop = chat.scrollHeight; }
 
@@ -213,6 +226,9 @@ async function guardarPedido(){
     items: [...carrito],
     nombre: nombreActual,
     celular: celularActual,
+    horario: horarioActual,
+    pago: pagoActual,
+    comprobante: comprobanteActual,
     direccion: direccionActual,
     zona: zonaActual,
     subtotal: sub,
@@ -239,8 +255,36 @@ function pedirNombre(){
   addBubble('bot', '😊 ¡Perfecto! Para tu pedido, ¿me dices tu nombre completo?');
 }
 
+function preguntarPago(){
+  esperandoPago = true;
+  addBubble('bot', '💰 ¿Cómo vas a pagar?', [
+    {label:'💵 Efectivo', value:'pago efectivo'},
+    {label:'💳 Pago en línea', value:'pago en línea'}
+  ]);
+}
+
+function mostrarConfirmacionFinal(){
+  esperandoConfirmacion = true;
+  addBubble('bot', `Revisa tu pedido:\n\n👤 ${nombreActual}\n📱 ${celularActual}\n📍 ${direccionActual}\n⏰ ${horarioActual}\n💰 ${pagoActual}\n\n${resumenCarrito(true)}\n\n¿Confirmas tu pedido?`, [
+    {label:'✅ Sí, confirmar', value:'sí'},
+    {label:'❌ Cancelar', value:'no'}
+  ]);
+}
+
 function handleUserInput(texto){
   const txt = texto.toLowerCase().trim();
+
+  if(esperandoComprobante){
+    addBubble('user', texto);
+    addBubble('bot', '📎 Por favor sube la foto de tu comprobante con el botón verde 📎 (abajo a la izquierda). Si prefieres, escribe "efectivo" para cambiar tu forma de pago.');
+    if(txt.includes('efectivo')){
+      esperandoComprobante = false;
+      mostrarBotonSubir(false);
+      comprobanteActual = '';
+      preguntarPago();
+    }
+    return;
+  }
 
   if(esperandoNombre){
     if(texto.trim().length < 2){
@@ -284,11 +328,94 @@ function handleUserInput(texto){
     envioActual = env.costo;
     zonaActual = env.zona;
     addBubble('user', texto);
-    esperandoConfirmacion = true;
-    addBubble('bot', `Revisa tu pedido:\n\n👤 ${nombreActual}\n📱 ${celularActual}\n📍 ${direccionActual}\n\n${resumenCarrito(true)}\n\n¿Confirmas tu pedido?`, [
-      {label:'✅ Sí, confirmar', value:'sí'},
-      {label:'❌ Cancelar', value:'no'}
+    esperandoHorario = true;
+    addBubble('bot', '⏰ ¿Para cuándo quieres tu pedido?', [
+      {label:'🔥 ¡Ya! (lo antes posible)', value:'horario ya'},
+      {label:'🕒 Programar una hora', value:'horario programar'}
     ]);
+    return;
+  }
+
+  if(esperandoHorario){
+    if(txt.includes('horario ya') || txt === 'ya' || txt.includes('lo antes')){
+      esperandoHorario = false;
+      horarioActual = 'Lo antes posible (¡Ya!)';
+      addBubble('user', '¡Ya! Lo antes posible');
+      preguntarPago();
+      return;
+    }
+    if(txt.includes('horario programar') || txt.includes('programar')){
+      esperandoHorario = false;
+      esperandoHoraProgramada = true;
+      addBubble('user', 'Programar una hora');
+      addBubble('bot', '🕒 ¿A qué hora quieres tu pedido? Escríbela (ejemplo: 2:30 pm, 8 pm, 14:00).');
+      return;
+    }
+    // Si escribió otra cosa, le repetimos las opciones
+    addBubble('user', texto);
+    addBubble('bot', 'Elige una opción, por favor 👇', [
+      {label:'🔥 ¡Ya! (lo antes posible)', value:'horario ya'},
+      {label:'🕒 Programar una hora', value:'horario programar'}
+    ]);
+    return;
+  }
+
+  if(esperandoHoraProgramada){
+    if(texto.trim().length < 1){
+      addBubble('user', texto);
+      addBubble('bot', 'Escribe una hora válida, por favor (ejemplo: 3 pm).');
+      return;
+    }
+    esperandoHoraProgramada = false;
+    horarioActual = 'Programado: ' + texto.trim();
+    addBubble('user', texto);
+    preguntarPago();
+    return;
+  }
+
+  if(esperandoPago){
+    if(txt.includes('efectivo')){
+      esperandoPago = false;
+      pagoActual = 'Efectivo';
+      esperandoBillete = true;
+      addBubble('user', '💵 Efectivo');
+      addBubble('bot', '💵 ¿Con qué billete vas a pagar? Así llevamos tu cambio listo.', [
+        {label:'$200', value:'billete 200'},
+        {label:'$500', value:'billete 500'},
+        {label:'$1000', value:'billete 1000'},
+        {label:'Pago exacto', value:'billete exacto'}
+      ]);
+      return;
+    }
+    if(txt.includes('línea') || txt.includes('linea') || txt.includes('transferencia') || txt.includes('en linea')){
+      esperandoPago = false;
+      pagoActual = 'Pago en línea (transferencia)';
+      addBubble('user', '💳 Pago en línea');
+      const totalPedido = subtotalCarrito() + envioActual;
+      addBubble('bot', `💳 Para pagar en línea, transfiere $${totalPedido} a:\n\n${DATOS_PAGO}`);
+      esperandoComprobante = true;
+      mostrarBotonSubir(true);
+      addBubble('bot', '📎 Cuando hagas tu transferencia, sube aquí la foto de tu comprobante con el botón verde 📎 (abajo a la izquierda) para confirmar tu pedido.');
+      return;
+    }
+    addBubble('user', texto);
+    addBubble('bot', 'Elige cómo vas a pagar 👇', [
+      {label:'💵 Efectivo', value:'pago efectivo'},
+      {label:'💳 Pago en línea', value:'pago en línea'}
+    ]);
+    return;
+  }
+
+  if(esperandoBillete){
+    esperandoBillete = false;
+    let billete = texto.trim();
+    if(txt.includes('billete 200')) billete = 'Paga con $200';
+    else if(txt.includes('billete 500')) billete = 'Paga con $500';
+    else if(txt.includes('billete 1000')) billete = 'Paga con $1000';
+    else if(txt.includes('billete exacto') || txt.includes('exacto')) billete = 'Pago exacto';
+    pagoActual = 'Efectivo — ' + billete;
+    addBubble('user', billete);
+    mostrarConfirmacionFinal();
     return;
   }
 
@@ -300,7 +427,7 @@ function handleUserInput(texto){
       guardarPedido().then(pedido => {
         carrito = [];
         addBubble('bot', `✅ ¡Pedido #${pedido.id} confirmado, ${pedido.nombre}! Nos ponemos a trabajar. Tu total fue $${pedido.total} (incluye $${pedido.envio} de envío a ${pedido.zona}). ¡Gracias por elegir Cochirosso! 🐷`);
-        zonaActual = ''; envioActual = 0; direccionActual = ''; nombreActual = ''; celularActual = '';
+        zonaActual = ''; envioActual = 0; direccionActual = ''; nombreActual = ''; celularActual = ''; horarioActual = ''; pagoActual = ''; comprobanteActual = '';
         setTimeout(() => addBubble('bot', '¿Deseas hacer otro pedido?', [{label:'📋 Ver menú de nuevo', value:'ver menú'}]), 1000);
       });
     } else {
@@ -406,6 +533,65 @@ function handleUserInput(texto){
     {label:'🛒 Ver mi pedido', value:'ver pedido'}
   ]);
 }
+
+const fileInput = document.getElementById('file-input');
+const uploadBtn = document.getElementById('upload-btn');
+
+function mostrarBotonSubir(mostrar){
+  uploadBtn.style.display = mostrar ? 'flex' : 'none';
+}
+
+function addImageBubble(role, dataUrl){
+  const wrap = document.createElement('div');
+  wrap.className = `msg ${role}`;
+  const bub = document.createElement('div');
+  bub.className = 'bubble';
+  bub.style.padding = '6px';
+  const img = document.createElement('img');
+  img.src = dataUrl;
+  img.style.maxWidth = '180px';
+  img.style.borderRadius = '8px';
+  img.style.display = 'block';
+  bub.appendChild(img);
+  wrap.appendChild(bub);
+  chat.appendChild(wrap);
+  scroll();
+}
+
+uploadBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/')){
+    addBubble('bot', 'Por favor sube una imagen (foto de tu comprobante).');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    // Reducir tamaño de la imagen para guardarla
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxW = 700;
+      const escala = Math.min(1, maxW / img.width);
+      canvas.width = img.width * escala;
+      canvas.height = img.height * escala;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      comprobanteActual = canvas.toDataURL('image/jpeg', 0.7);
+
+      addImageBubble('user', comprobanteActual);
+      esperandoComprobante = false;
+      mostrarBotonSubir(false);
+      fileInput.value = '';
+      addBubble('bot', '✅ ¡Comprobante recibido! Gracias.');
+      mostrarConfirmacionFinal();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
 
 sendBtn.addEventListener('click', () => {
   const txt = input.value.trim();
